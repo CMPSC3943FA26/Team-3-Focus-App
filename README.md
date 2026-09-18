@@ -2,7 +2,7 @@
 
 A mobile productivity app for students who struggle with time management, ADHD, and time blindness. The core feature is an adjustable alarm system: instead of a single reminder, you pick how often you want to be nagged before an event, and the app also calculates a "need to leave by" time so you actually arrive on time. Around that sit a color coded calendar, long term goal tracking, and study and break timers.
 
-Built for the CMPSC 3943 Agile/Scrum course, Team 2.
+Built for the CMPSC 3943 Agile/Scrum course, Team 3.
 
 ## Tech stack
 
@@ -39,8 +39,8 @@ An iPhone plus a Windows laptop is a perfectly normal setup for this team.
 Clone the repo and install dependencies. Note that dependencies live in `mobile/`, not at the repo root.
 
 ```bash
-git clone https://github.com/CMPSC3943FA26/Team-2---Focus-App.git
-cd Team-2---Focus-App/mobile
+git clone https://github.com/CMPSC3943FA26/Team-3-Focus-App.git
+cd Team-3-Focus-App/mobile
 npm install
 ```
 
