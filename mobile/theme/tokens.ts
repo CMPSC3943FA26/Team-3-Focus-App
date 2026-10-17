@@ -15,17 +15,19 @@ export const radius = {
 } as const;
 
 export const typography = {
-  family: 'Inter Tight',
+  family: {
+    regular: 'InterTight_400Regular',
+    medium: 'InterTight_500Medium',
+    semibold: 'InterTight_600SemiBold',
+    bold: 'InterTight_700Bold',
+  },
   size: {
+    eyebrow: 13,
     display: 64,
     title: 24,
+    heading: 20,
     body: 16,
     caption: 13,
-  },
-  weight: {
-    regular: '400',
-    medium: '500',
-    bold: '700',
   },
 } as const;
 
@@ -36,9 +38,11 @@ export type ColorTokens = {
   textSecondary: string;
   border: string;
   accent: string;
+  accentText: string;
   calm: string;
   warning: string;
   urgent: string;
+  danger: string;
 };
 
 export const lightColors: ColorTokens = {
@@ -48,9 +52,11 @@ export const lightColors: ColorTokens = {
   textSecondary: '#6B6862',
   border: '#E2DFD8',
   accent: '#4A6D62',
+  accentText: '#FFFFFF',
   calm: '#5B8C7B',
   warning: '#C08A3E',
   urgent: '#B4543A',
+  danger: '#B4543A',
 };
 
 export const darkColors: ColorTokens = {
@@ -60,12 +66,16 @@ export const darkColors: ColorTokens = {
   textSecondary: '#9AA0A2',
   border: '#2C3134',
   accent: '#7FB0A0',
+  accentText: '#15181A',
   calm: '#7FB0A0',
   warning: '#D9A75C',
   urgent: '#D97757',
+  danger: '#D97757',
 };
 
 export type Scheme = 'light' | 'dark';
+
+export type ThemePreference = Scheme | 'system';
 
 export type Theme = {
   scheme: Scheme;

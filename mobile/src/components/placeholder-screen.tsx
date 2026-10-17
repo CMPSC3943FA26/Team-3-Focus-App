@@ -19,7 +19,7 @@ export function PlaceholderScreen({ title, subtitle, children }: Props) {
           style={{
             color: theme.colors.textPrimary,
             fontSize: theme.typography.size.title,
-            fontWeight: theme.typography.weight.bold,
+            fontFamily: theme.typography.family.bold,
           }}>
           {title}
         </Text>
@@ -29,6 +29,7 @@ export function PlaceholderScreen({ title, subtitle, children }: Props) {
             style={{
               color: theme.colors.textSecondary,
               fontSize: theme.typography.size.body,
+              fontFamily: theme.typography.family.regular,
               marginTop: theme.spacing.sm,
               textAlign: 'center',
             }}>

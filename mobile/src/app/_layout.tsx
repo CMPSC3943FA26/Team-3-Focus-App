@@ -1,8 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import {
+  InterTight_400Regular,
+  InterTight_500Medium,
+  InterTight_600SemiBold,
+  InterTight_700Bold,
+  useFonts,
+} from '@expo-google-fonts/inter-tight';
 import { Tabs } from 'expo-router/js-tabs';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
 import { ThemeProvider, useTheme } from '../../theme/ThemeContext';
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function ThemedTabs() {
   const { theme } = useTheme();
@@ -10,14 +21,13 @@ function ThemedTabs() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: theme.colors.surface },
-        headerTitleStyle: { color: theme.colors.textPrimary },
-        headerShadowVisible: false,
+        headerShown: false,
         sceneStyle: { backgroundColor: theme.colors.background },
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
         },
+        tabBarLabelStyle: { fontFamily: theme.typography.family.medium },
         tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.textSecondary,
       }}>
@@ -57,6 +67,8 @@ function ThemedTabs() {
           ),
         }}
       />
+      <Tabs.Screen name="alarms" options={{ href: null }} />
+      <Tabs.Screen name="reminders" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -66,11 +78,39 @@ function ThemedStatusBar() {
   return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
 }
 
+function AppGate() {
+  const { ready } = useTheme();
+  const [fontsLoaded, fontError] = useFonts({
+    InterTight_400Regular,
+    InterTight_500Medium,
+    InterTight_600SemiBold,
+    InterTight_700Bold,
+  });
+
+  const canRender = ready && (fontsLoaded || fontError !== null);
+
+  useEffect(() => {
+    if (canRender) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [canRender]);
+
+  if (!canRender) {
+    return null;
+  }
+
+  return (
+    <>
+      <ThemedStatusBar />
+      <ThemedTabs />
+    </>
+  );
+}
+
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <ThemedStatusBar />
-      <ThemedTabs />
+      <AppGate />
     </ThemeProvider>
   );
 }
