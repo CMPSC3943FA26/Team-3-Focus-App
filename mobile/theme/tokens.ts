@@ -40,7 +40,9 @@ export type ColorTokens = {
   accent: string;
   accentText: string;
   calm: string;
+  calmText: string;
   warning: string;
+  warningText: string;
   urgent: string;
   danger: string;
 };
@@ -54,7 +56,9 @@ export const lightColors: ColorTokens = {
   accent: '#4A6D62',
   accentText: '#FFFFFF',
   calm: '#5B8C7B',
+  calmText: '#44705F',
   warning: '#C08A3E',
+  warningText: '#8F6424',
   urgent: '#B4543A',
   danger: '#B4543A',
 };
@@ -68,7 +72,9 @@ export const darkColors: ColorTokens = {
   accent: '#7FB0A0',
   accentText: '#15181A',
   calm: '#7FB0A0',
+  calmText: '#7FB0A0',
   warning: '#D9A75C',
+  warningText: '#D9A75C',
   urgent: '#D97757',
   danger: '#D97757',
 };
