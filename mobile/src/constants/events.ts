@@ -1,0 +1,5 @@
+export const EVENT_COLORS = ['#5E8C76', '#4F7CAC', '#8A6FB0', '#C49343', '#B85C45', '#6B7075'];
+
+export const DEFAULT_EVENT_COLOR = EVENT_COLORS[0];
+
+export const MAX_TRAVEL_MINUTES = 180;

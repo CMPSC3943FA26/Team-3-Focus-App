@@ -8,6 +8,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { parseOffsets } from '@/constants/reminders';
 import { getReminderPrefs, saveReminderPrefs } from '@/services/reminderPrefs';
+import { syncReminders } from '@/services/reminders';
 import type { FrequencyTier } from '@/types/alarm';
 import { useTheme } from '../../theme/ThemeContext';
 
@@ -40,6 +41,7 @@ export default function RemindersScreen() {
         default_tier: tier,
         default_custom_offsets: customOffsets ?? [],
       });
+      await syncReminders();
       router.back();
     } finally {
       setSaving(false);

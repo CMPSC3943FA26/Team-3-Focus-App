@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
-import { syncReminders } from '../services/alarms';
+import { syncReminders } from '../services/reminders';
 
 export function useReminderSync(): void {
   useEffect(() => {
