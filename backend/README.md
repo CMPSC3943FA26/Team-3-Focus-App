@@ -176,6 +176,11 @@ Base path is `/api`.
 | GET | `/api/alarms/<id>` | Returns one alarm, or 404 |
 | PATCH | `/api/alarms/<id>` | Updates the fields you send, or 404 |
 | DELETE | `/api/alarms/<id>` | Deletes an alarm, returns 204, or 404 |
+| GET | `/api/events` | Lists every event by start time. Accepts `?start=&end=` |
+| POST | `/api/events` | Creates an event, returns 201 |
+| GET | `/api/events/<id>` | Returns one event, or 404 |
+| PATCH | `/api/events/<id>` | Updates the fields you send, or 404 |
+| DELETE | `/api/events/<id>` | Deletes an event, returns 204, or 404 |
 
 Example create.
 
@@ -189,6 +194,29 @@ Example create.
   "snooze_duration": 5
 }
 ```
+
+Example create an event.
+
+```json
+{
+  "title": "OS lecture",
+  "start_time": "2026-10-20T09:00:00",
+  "end_time": "2026-10-20T10:15:00",
+  "location": "Room 204",
+  "travel_minutes": 15,
+  "color": "#5E8C76"
+}
+```
+
+Event times are local wall-clock time with no timezone, so `2026-10-20T09:00:00` means nine in the morning wherever the user is. `end_time` must be after `start_time`. `color` is a six digit hex value and comes back uppercase. `travel_minutes` runs from 0 to 600, and 0 is stored as null.
+
+The `?start=&end=` query takes whole dates and returns every event overlapping that range, including one that began before the range and is still running.
+
+```
+GET /api/events?start=2026-10-20&end=2026-10-26
+```
+
+Both parameters are required together, and `end` must be on or after `start`.
 
 `time` is 24 hour `HH:MM`. `repeat_days` uses the codes `mon tue wed thu fri sat sun` and comes back sorted into week order, with an empty list meaning a one time alarm. `frequency_tier` is one of `few`, `some`, `many` or `custom`, and `custom_offsets` is only kept when the tier is `custom`, sorted from largest to smallest. Invalid input returns 400 with an `error` message.
 

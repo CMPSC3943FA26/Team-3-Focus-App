@@ -3,6 +3,7 @@ from flask import Flask
 from .config import get_config
 from .extensions import cors, db, migrate
 from .routes.alarms import bp as alarms_bp
+from .routes.events import bp as events_bp
 from .routes.health import health_bp
 
 
@@ -19,5 +20,6 @@ def create_app(config_name=None):
 
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(alarms_bp, url_prefix="/api")
+    app.register_blueprint(events_bp, url_prefix="/api")
 
     return app
