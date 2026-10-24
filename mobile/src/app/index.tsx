@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/Card';
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useReminderSync } from '@/hooks/useReminderSync';
@@ -28,23 +29,31 @@ export default function HomeScreen() {
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tick, setTick] = useState(0);
+  const [failed, setFailed] = useState(false);
 
   useReminderSync();
 
+  const refresh = useCallback(() => {
+    Promise.all([listAlarms(), listEvents()])
+      .then(([loadedAlarms, loadedEvents]) => {
+        setAlarms(loadedAlarms);
+        setEvents(loadedEvents);
+        setFailed(false);
+      })
+      .catch(() => setFailed(true));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      listAlarms().then(setAlarms).catch(() => setAlarms([]));
-      listEvents().then(setEvents).catch(() => setEvents([]));
+      refresh();
       const timer = setInterval(() => setTick((value) => value + 1), 30_000);
       return () => clearInterval(timer);
-    }, []),
+    }, [refresh]),
   );
 
   useEffect(() => {
-    if (tick > 0) {
-      listEvents().then(setEvents).catch(() => undefined);
-    }
-  }, [tick]);
+    if (tick > 0) refresh();
+  }, [tick, refresh]);
 
   const upcomingAlarm = nextAlarm(alarms);
   const departure = nextDeparture(events);
@@ -53,6 +62,8 @@ export default function HomeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, gap: theme.spacing.lg }}>
         <ScreenHeader title="Today" showBack={false} />
+
+        {failed ? <ErrorBanner message="Can't reach the server" onRetry={refresh} /> : null}
 
         <Card>
           <Text

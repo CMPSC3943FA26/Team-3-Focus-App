@@ -19,6 +19,7 @@ import { Card } from '@/components/ui/Card';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS, MAX_TRAVEL_MINUTES } from '@/constants/events';
+import { apiErrorMessage } from '@/lib/api';
 import { formatClock, parseLocal, toLocalIso } from '@/lib/dates';
 import { createEvent, deleteEvent, getEvent, updateEvent } from '@/services/events';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -58,6 +59,7 @@ export default function EventFormScreen() {
   const [notes, setNotes] = useState('');
   const [color, setColor] = useState(DEFAULT_EVENT_COLOR);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNew) {
@@ -108,9 +110,12 @@ export default function EventFormScreen() {
       color,
     };
     try {
+      setSaveError(null);
       if (isNew) await createEvent(payload);
       else await updateEvent(eventId, payload);
       router.back();
+    } catch (error) {
+      setSaveError(apiErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -125,7 +130,7 @@ export default function EventFormScreen() {
         onPress: () => {
           deleteEvent(eventId)
             .then(() => router.back())
-            .catch(() => undefined);
+            .catch((error) => setSaveError(apiErrorMessage(error)));
         },
       },
     ]);
@@ -359,6 +364,18 @@ export default function EventFormScreen() {
             right: theme.spacing.xl,
             bottom: theme.spacing.xl,
           }}>
+          {saveError ? (
+            <Text
+              style={{
+                color: theme.colors.danger,
+                fontSize: theme.typography.size.caption,
+                fontFamily: theme.typography.family.medium,
+                marginBottom: theme.spacing.sm,
+                textAlign: 'center',
+              }}>
+              {saveError}
+            </Text>
+          ) : null}
           <PrimaryButton label="Save event" onPress={onSave} disabled={saving} />
         </View>
       </KeyboardAvoidingView>

@@ -124,6 +124,72 @@ Then open a pull request on GitHub targeting `dev`, not `main`.
 
 Keep branch names short and lowercase, and use hyphens rather than spaces or underscores.
 
+## Running with the server
+
+The app works on its own with everything saved on the phone. Point it at the Flask backend and alarms and events save on the server instead, so they survive a reinstall and can be seen by anyone on the same machine.
+
+### 1. Start the server
+
+From inside `backend/`, with the virtual environment active.
+
+```powershell
+$env:FLASK_APP = "run.py"
+flask db upgrade
+python run.py
+```
+
+On Mac and Linux use `export FLASK_APP=run.py` instead.
+
+### 2. Find your laptop's address on the network
+
+**Windows**
+
+```powershell
+ipconfig
+```
+
+Take the `IPv4 Address` under your active wifi adapter. It usually starts with `192.168.` or `10.`.
+
+**Mac**
+
+```bash
+ipconfig getifaddr en0
+```
+
+### 3. Point the app at it
+
+Copy the example file and put your address in.
+
+```powershell
+copy mobile\.env.example mobile\.env
+```
+
+Then edit `mobile/.env` so the line reads like this, with your own address.
+
+```
+EXPO_PUBLIC_API_URL=http://192.168.1.20:5000/api
+```
+
+### 4. Restart Expo with a cleared cache
+
+```bash
+npx expo start -c
+```
+
+The `-c` matters. The setting is read when the bundler starts, so a running server will not pick up the change.
+
+### 5. Same wifi, and let Python through the firewall
+
+The phone and the laptop must be on the same network. The first time you run the server on Windows, a firewall prompt appears. Allow Python on private networks. Dismissing it is the most common reason the phone cannot reach a server that is clearly running.
+
+### 6. Check it worked
+
+Open Settings in the app. It should read **Connected** with your address underneath. **Phone only** means the setting is not being read, and **Can't reach the server** means it is being read but nothing answered.
+
+To go back to phone only, delete the line from `mobile/.env` and restart with `npx expo start -c`.
+
+One thing for later. Expo Go allows plain HTTP on a local network, but a standalone installable build does not. A real build will need cleartext HTTP explicitly allowed, or the server moved to HTTPS.
+
 ## Troubleshooting
 
 **The QR code scans but the app never loads.**

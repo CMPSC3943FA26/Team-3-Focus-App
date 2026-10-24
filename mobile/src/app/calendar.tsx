@@ -7,6 +7,7 @@ import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EventCard } from '@/components/EventCard';
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { PillGroup } from '@/components/ui/PillGroup';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Fab } from '@/components/ui/Fab';
@@ -30,11 +31,21 @@ export default function CalendarScreen() {
   const [mode, setMode] = useState<ViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [failed, setFailed] = useState(false);
+
+  const refresh = useCallback(() => {
+    listEvents()
+      .then((loaded) => {
+        setEvents(loaded);
+        setFailed(false);
+      })
+      .catch(() => setFailed(true));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      listEvents().then(setEvents).catch(() => setEvents([]));
-    }, []),
+      refresh();
+    }, [refresh]),
   );
 
   const byDay = useMemo(() => {
@@ -100,6 +111,8 @@ export default function CalendarScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 120 }}>
         <ScreenHeader title="Calendar" showBack={false} />
+
+        {failed ? <ErrorBanner message="Can't reach the server" onRetry={refresh} /> : null}
 
         <View style={{ marginBottom: theme.spacing.xl }}>
           <PillGroup options={VIEW_OPTIONS} selected={[mode]} onSelect={setMode} />

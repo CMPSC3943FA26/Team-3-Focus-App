@@ -21,6 +21,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { DAY_LABELS, parseOffsets } from '@/constants/reminders';
+import { apiErrorMessage } from '@/lib/api';
 import { createAlarm, deleteAlarm, getAlarm, updateAlarm } from '@/services/alarms';
 import { getReminderPrefs } from '@/services/reminderPrefs';
 import { DAY_CODES, type DayCode, type FrequencyTier } from '@/types/alarm';
@@ -60,6 +61,7 @@ export default function AlarmFormScreen() {
   const [customText, setCustomText] = useState('');
   const [snooze, setSnooze] = useState(5);
   const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isNew) {
@@ -108,9 +110,12 @@ export default function AlarmFormScreen() {
       event_id: null,
     };
     try {
+      setSaveError(null);
       if (isNew) await createAlarm(payload);
       else await updateAlarm(alarmId, payload);
       router.back();
+    } catch (error) {
+      setSaveError(apiErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -125,7 +130,7 @@ export default function AlarmFormScreen() {
         onPress: () => {
           deleteAlarm(alarmId)
             .then(() => router.back())
-            .catch(() => undefined);
+            .catch((error) => setSaveError(apiErrorMessage(error)));
         },
       },
     ]);
@@ -309,6 +314,18 @@ export default function AlarmFormScreen() {
             right: theme.spacing.xl,
             bottom: theme.spacing.xl,
           }}>
+          {saveError ? (
+            <Text
+              style={{
+                color: theme.colors.danger,
+                fontSize: theme.typography.size.caption,
+                fontFamily: theme.typography.family.medium,
+                marginBottom: theme.spacing.sm,
+                textAlign: 'center',
+              }}>
+              {saveError}
+            </Text>
+          ) : null}
           <PrimaryButton label="Save alarm" onPress={onSave} disabled={!canSave} />
         </View>
       </KeyboardAvoidingView>

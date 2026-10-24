@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/Card';
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { Fab } from '@/components/ui/Fab';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { TIER_LABELS, formatDays } from '@/constants/reminders';
@@ -21,9 +22,15 @@ export default function AlarmListScreen() {
   const router = useRouter();
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [allowed, setAllowed] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   const refresh = useCallback(() => {
-    listAlarms().then(setAlarms).catch(() => setAlarms([]));
+    listAlarms()
+      .then((loaded) => {
+        setAlarms(loaded);
+        setFailed(false);
+      })
+      .catch(() => setFailed(true));
     notificationsAllowed().then(setAllowed).catch(() => setAllowed(true));
   }, []);
 
@@ -39,10 +46,28 @@ export default function AlarmListScreen() {
     refresh();
   };
 
+  const onToggle = (alarm: Alarm) => {
+    const previous = alarms;
+    setAlarms((current) =>
+      current.map((item) => (item.id === alarm.id ? { ...item, is_active: !item.is_active } : item)),
+    );
+    toggleAlarm(alarm.id)
+      .then(() => {
+        setFailed(false);
+        refresh();
+      })
+      .catch(() => {
+        setAlarms(previous);
+        setFailed(true);
+      });
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: 120 }}>
         <ScreenHeader title="Alarms" />
+
+        {failed ? <ErrorBanner message="Can't reach the server" onRetry={refresh} /> : null}
 
         {!allowed ? (
           <Card style={{ marginBottom: theme.spacing.lg }}>
@@ -134,7 +159,7 @@ export default function AlarmListScreen() {
 
                     <Switch
                       value={alarm.is_active}
-                      onValueChange={() => toggleAlarm(alarm.id).then(refresh).catch(() => undefined)}
+                      onValueChange={() => onToggle(alarm)}
                       trackColor={{ true: theme.colors.accent, false: theme.colors.border }}
                     />
                   </View>

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { PillGroup } from '@/components/ui/PillGroup';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
+import { apiHost, checkServer, type ServerStatus } from '@/lib/api';
 import { cancelTestSequence, scheduleTestSequence, scheduledCount } from '@/services/notifications';
 import { useTheme } from '../../theme/ThemeContext';
 import type { ThemePreference } from '../../theme/tokens';
@@ -23,17 +24,94 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [testIds, setTestIds] = useState<string[]>([]);
   const [count, setCount] = useState(0);
+  const [status, setStatus] = useState<ServerStatus>('local');
 
   const refreshCount = () => {
     scheduledCount().then(setCount).catch(() => setCount(0));
   };
 
+  const refreshServer = useCallback(() => {
+    checkServer().then(setStatus).catch(() => setStatus('offline'));
+  }, []);
+
   useEffect(refreshCount, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshServer();
+    }, [refreshServer]),
+  );
+
+  const serverTitle =
+    status === 'local' ? 'Phone only' : status === 'online' ? 'Connected' : "Can't reach the server";
+
+  const serverCaption =
+    status === 'local' ? 'No server set. Everything is saved on this phone.' : (apiHost ?? '');
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, gap: theme.spacing.lg }}>
         <ScreenHeader title="Settings" showBack={false} />
+
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
+                {status === 'online' ? (
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: theme.radius.pill,
+                      backgroundColor: theme.colors.calm,
+                    }}
+                  />
+                ) : null}
+                <Text
+                  style={{
+                    color: status === 'offline' ? theme.colors.warningText : theme.colors.textPrimary,
+                    fontSize: theme.typography.size.heading,
+                    fontFamily: theme.typography.family.semibold,
+                  }}>
+                  {serverTitle}
+                </Text>
+              </View>
+              {serverCaption ? (
+                <Text
+                  style={{
+                    color: theme.colors.textSecondary,
+                    fontSize: theme.typography.size.caption,
+                    fontFamily: theme.typography.family.regular,
+                    marginTop: theme.spacing.xs,
+                  }}>
+                  {serverCaption}
+                </Text>
+              ) : null}
+            </View>
+
+            {status === 'offline' ? (
+              <Pressable
+                onPress={refreshServer}
+                style={{
+                  height: 44,
+                  justifyContent: 'center',
+                  paddingHorizontal: theme.spacing.xl,
+                  borderRadius: theme.radius.pill,
+                  borderWidth: 1,
+                  borderColor: theme.colors.border,
+                }}>
+                <Text
+                  style={{
+                    color: theme.colors.textPrimary,
+                    fontSize: theme.typography.size.body,
+                    fontFamily: theme.typography.family.semibold,
+                  }}>
+                  Retry
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </Card>
 
         <Card>
           <Text
