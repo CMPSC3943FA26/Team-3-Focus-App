@@ -138,6 +138,18 @@ export default function SettingsScreen() {
           </Card>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/quiet-hours')}>
+          <Card>
+            <SettingRow
+              title="Quiet hours"
+              description="Silence nudges during set times"
+              control={
+                <Ionicons name="chevron-forward" size={22} color={theme.colors.textSecondary} />
+              }
+            />
+          </Card>
+        </Pressable>
+
         {__DEV__ ? (
           <Card>
             <Text
