@@ -11,6 +11,7 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { DAY_LABELS } from '@/constants/reminders';
 import { getQuietHours, saveQuietHours } from '@/services/quietHours';
+import { syncReminders } from '@/services/reminders';
 import { DAY_CODES, type DayCode } from '@/types/alarm';
 import { useTheme } from '../../theme/ThemeContext';
 
@@ -54,6 +55,7 @@ export default function QuietHoursScreen() {
     setSaving(true);
     try {
       await saveQuietHours({ enabled, start, end, days });
+      await syncReminders();
       router.back();
     } finally {
       setSaving(false);

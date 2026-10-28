@@ -5,6 +5,7 @@ import { CalendarEvent } from '../types/event';
 import * as alarmsStore from './alarmsStore';
 import * as eventsStore from './eventsStore';
 import { applyReminderPlan, nextOccurrence, PlannedReminder } from './notifications';
+import { getQuietHours, insideQuietHours } from './quietHours';
 import { getReminderPrefs } from './reminderPrefs';
 
 const EVENT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -79,7 +80,12 @@ async function runSync(): Promise<void> {
     const prefs = await getReminderPrefs();
     const eventOffsets =
       prefs.default_tier === 'custom' ? prefs.default_custom_offsets : TIER_OFFSETS[prefs.default_tier];
-    const plan = planReminders(await alarmsStore.listAlarms(), await eventsStore.listEvents(), eventOffsets, now);
+    const quiet = await getQuietHours();
+    // minutesBefore 0 is the alarm or leave time itself, it always fires
+    const planned = planReminders(await alarmsStore.listAlarms(), await eventsStore.listEvents(), eventOffsets, now);
+    const plan = planned.filter(
+      (reminder) => reminder.data.minutesBefore === 0 || !insideQuietHours(new Date(reminder.fireAt), quiet),
+    );
     await applyReminderPlan(plan);
   } catch (error) {
     console.warn('Could not sync reminders', error);
