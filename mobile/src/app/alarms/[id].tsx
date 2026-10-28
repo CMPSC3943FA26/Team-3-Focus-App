@@ -18,6 +18,7 @@ import { TierSelector } from '@/components/TierSelector';
 import { Card } from '@/components/ui/Card';
 import { PillGroup } from '@/components/ui/PillGroup';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { ClockText } from '@/components/ui/ClockText';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { DAY_LABELS, parseOffsets } from '@/constants/reminders';
@@ -175,15 +176,15 @@ export default function AlarmFormScreen() {
           <Card>
             <Text style={fieldLabel}>Time</Text>
             <Pressable onPress={() => setShowPicker(true)}>
-              <Text
+              <ClockText
+                time={time}
                 style={{
                   color: theme.colors.textPrimary,
                   fontSize: theme.typography.size.display,
                   fontFamily: theme.typography.family.bold,
                   marginTop: theme.spacing.xs,
-                }}>
-                {time}
-              </Text>
+                }}
+              />
             </Pressable>
             {showPicker ? (
               <DateTimePicker

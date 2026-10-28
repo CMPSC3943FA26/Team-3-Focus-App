@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/Card';
+import { ClockText } from '@/components/ui/ClockText';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -155,14 +156,14 @@ export default function HomeScreen() {
 
           {upcomingAlarm ? (
             <View style={{ marginTop: theme.spacing.sm }}>
-              <Text
+              <ClockText
+                time={upcomingAlarm.alarm.time}
                 style={{
                   color: theme.colors.textPrimary,
                   fontSize: theme.typography.size.display,
                   fontFamily: theme.typography.family.bold,
-                }}>
-                {upcomingAlarm.alarm.time}
-              </Text>
+                }}
+              />
               <Text
                 style={{
                   color: theme.colors.textPrimary,

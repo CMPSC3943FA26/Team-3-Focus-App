@@ -15,7 +15,15 @@ export function dayKey(date: Date): string {
 }
 
 export function formatClock(date: Date): string {
-  return format(date, 'HH:mm');
+  return format(date, 'h:mm a');
+}
+
+// "22:00" -> "10:00 PM". Alarm and quiet hours times are stored as HH:MM.
+export function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return formatClock(date);
 }
 
 export function weekDays(anchor: Date): Date[] {
