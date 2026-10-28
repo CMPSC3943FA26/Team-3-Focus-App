@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/Card';
+import { ClockText } from '@/components/ui/ClockText';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { Fab } from '@/components/ui/Fab';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
@@ -129,14 +130,14 @@ export default function AlarmListScreen() {
                 <Card>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.lg }}>
                     <View style={{ flex: 1, opacity: alarm.is_active ? 1 : 0.5 }}>
-                      <Text
+                      <ClockText
+                        time={alarm.time}
                         style={{
                           color: theme.colors.textPrimary,
                           fontSize: theme.typography.size.display,
                           fontFamily: theme.typography.family.bold,
-                        }}>
-                        {alarm.time}
-                      </Text>
+                        }}
+                      />
                       <Text
                         style={{
                           color: theme.colors.textPrimary,

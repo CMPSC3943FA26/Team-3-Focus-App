@@ -10,6 +10,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { DAY_LABELS } from '@/constants/reminders';
+import { formatTime } from '@/lib/dates';
 import { getQuietHours, saveQuietHours } from '@/services/quietHours';
 import { syncReminders } from '@/services/reminders';
 import { DAY_CODES, type DayCode } from '@/types/alarm';
@@ -109,7 +110,7 @@ export default function QuietHoursScreen() {
               title="Starts"
               control={
                 <Pressable onPress={() => setPicker('start')} hitSlop={8}>
-                  <Text style={timeText}>{start}</Text>
+                  <Text style={timeText}>{formatTime(start)}</Text>
                 </Pressable>
               }
             />
@@ -117,7 +118,7 @@ export default function QuietHoursScreen() {
               title="Ends"
               control={
                 <Pressable onPress={() => setPicker('end')} hitSlop={8}>
-                  <Text style={timeText}>{end}</Text>
+                  <Text style={timeText}>{formatTime(end)}</Text>
                 </Pressable>
               }
             />
