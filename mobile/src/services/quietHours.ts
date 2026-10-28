@@ -43,3 +43,24 @@ export async function getQuietHours(): Promise<QuietHours> {
 export async function saveQuietHours(value: QuietHours): Promise<void> {
   await AsyncStorage.setItem(KEY, JSON.stringify(value));
 }
+
+const WEEKDAYS: DayCode[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+function minutesOf(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+// Days are checked against the day the nudge fires, not the day the window opened.
+export function insideQuietHours(at: Date, quiet: QuietHours): boolean {
+  if (!quiet.enabled) return false;
+  if (quiet.days.length && !quiet.days.includes(WEEKDAYS[at.getDay()])) return false;
+
+  const now = at.getHours() * 60 + at.getMinutes();
+  const start = minutesOf(quiet.start);
+  const end = minutesOf(quiet.end);
+
+  // overnight, e.g. 22:00 to 07:00
+  if (start > end) return now >= start || now < end;
+  return now >= start && now < end;
+}
