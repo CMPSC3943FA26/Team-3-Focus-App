@@ -9,6 +9,7 @@ import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useReminderSync } from '@/hooks/useReminderSync';
+import { useSnoozeResponse } from '@/hooks/useSnoozeResponse';
 import { describeWait, formatClock, parseLocal } from '@/lib/dates';
 import { listAlarms, nextAlarm } from '@/services/alarms';
 import { listEvents, nextDeparture } from '@/services/events';
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const [failed, setFailed] = useState(false);
 
   useReminderSync();
+  useSnoozeResponse();
 
   const refresh = useCallback(() => {
     Promise.all([listAlarms(), listEvents()])
