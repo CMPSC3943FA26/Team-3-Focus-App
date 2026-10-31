@@ -4,6 +4,8 @@ import { Linking, Platform } from 'react-native';
 import { Alarm, DayCode } from '../types/alarm';
 
 const CHANNEL_ID = 'reminders';
+const ALARM_CATEGORY = 'alarm';
+export const SNOOZE_ACTION = 'snooze';
 const MAX_SCHEDULED = 60;
 const DAY_INDEX: Record<DayCode, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
@@ -35,6 +37,10 @@ export async function initNotifications(): Promise<void> {
       vibrationPattern: [0, 250, 250, 250],
     });
   }
+  // opens the app on tap, if false a killed app never hear the snooze press
+  await Notifications.setNotificationCategoryAsync(ALARM_CATEGORY, [
+    { identifier: SNOOZE_ACTION, buttonTitle: 'Snooze', options: { opensAppToForeground: true } },
+  ]).catch(() => undefined);
 }
 
 export async function notificationsAllowed(): Promise<boolean> {
@@ -83,8 +89,16 @@ export async function applyReminderPlan(plan: PlannedReminder[]): Promise<number
   const budget = Math.max(0, MAX_SCHEDULED - (scheduled.length - ours.length));
   const chosen = plan.slice(0, budget);
   for (const item of chosen) {
+    // only the alarm itself gets snooze, early nudges dont need it
+    const snoozable = typeof item.data.alarmId === 'number' && item.data.minutesBefore === 0;
     await Notifications.scheduleNotificationAsync({
-      content: { title: item.title, body: item.body, sound: 'default', data: item.data },
+      content: {
+        title: item.title,
+        body: item.body,
+        sound: 'default',
+        data: item.data,
+        categoryIdentifier: snoozable ? ALARM_CATEGORY : undefined,
+      },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: new Date(item.fireAt),
@@ -93,6 +107,37 @@ export async function applyReminderPlan(plan: PlannedReminder[]): Promise<number
     });
   }
   return chosen.length;
+}
+
+// snoozedAlarmId not alarmId, so applyReminderPlan dont cancel it on next sync
+export async function scheduleSnooze(alarmId: number, title: string, body: string, minutes: number): Promise<void> {
+  await initNotifications();
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      sound: 'default',
+      data: { snoozedAlarmId: alarmId, snoozeMinutes: minutes },
+      categoryIdentifier: ALARM_CATEGORY,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: minutes * 60,
+      channelId: CHANNEL_ID,
+    },
+  });
+}
+
+export async function dismissNotification(identifier: string): Promise<void> {
+  await Notifications.dismissNotificationAsync(identifier).catch(() => undefined);
+}
+
+export async function cancelSnoozes(alarmId: number): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const snoozes = scheduled.filter((request) => request.content.data?.snoozedAlarmId === alarmId);
+  await Promise.all(
+    snoozes.map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier).catch(() => undefined)),
+  );
 }
 
 export async function scheduleTestSequence(): Promise<string[]> {

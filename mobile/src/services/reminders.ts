@@ -1,10 +1,19 @@
+import type { NotificationResponse } from 'expo-notifications';
+
 import { offsetsFor, TIER_OFFSETS } from '../constants/reminders';
 import { parseLocal } from '../lib/dates';
 import { Alarm } from '../types/alarm';
 import { CalendarEvent } from '../types/event';
 import * as alarmsStore from './alarmsStore';
 import * as eventsStore from './eventsStore';
-import { applyReminderPlan, nextOccurrence, PlannedReminder } from './notifications';
+import {
+  applyReminderPlan,
+  dismissNotification,
+  nextOccurrence,
+  PlannedReminder,
+  scheduleSnooze,
+  SNOOZE_ACTION,
+} from './notifications';
 import { getQuietHours, insideQuietHours } from './quietHours';
 import { getReminderPrefs } from './reminderPrefs';
 
@@ -46,7 +55,7 @@ export function planReminders(
         fireAt: at - minutes * 60_000,
         title: alarm.label,
         body: alarmBody(minutes),
-        data: { alarmId: alarm.id, minutesBefore: minutes },
+        data: { alarmId: alarm.id, minutesBefore: minutes, snoozeMinutes: alarm.snooze_duration },
       });
     }
   }
@@ -89,6 +98,27 @@ async function runSync(): Promise<void> {
     await applyReminderPlan(plan);
   } catch (error) {
     console.warn('Could not sync reminders', error);
+  }
+}
+
+const handledResponses = new Set<string>();
+
+export async function handleSnoozeResponse(response: NotificationResponse): Promise<void> {
+  if (response.actionIdentifier !== SNOOZE_ACTION) return;
+  const { identifier, content } = response.notification.request;
+  // same press can come from listener and last response both, only snooze once
+  if (handledResponses.has(identifier)) return;
+  handledResponses.add(identifier);
+  const data = content.data;
+  const alarmId = typeof data?.alarmId === 'number' ? data.alarmId : data?.snoozedAlarmId;
+  // snoozeMinutes ride in the notification, so no alarm fetch that fail when server is down
+  const minutes = data?.snoozeMinutes;
+  if (typeof alarmId !== 'number' || typeof minutes !== 'number') return;
+  try {
+    await scheduleSnooze(alarmId, content.title ?? '', content.body ?? alarmBody(0), minutes);
+    await dismissNotification(identifier);
+  } catch (error) {
+    console.warn('Could not snooze alarm', error);
   }
 }
 

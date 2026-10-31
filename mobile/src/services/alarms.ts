@@ -1,6 +1,6 @@
 import { Alarm, AlarmInput } from '../types/alarm';
 import * as store from './alarmsStore';
-import { askNotificationPermission, nextOccurrence } from './notifications';
+import { askNotificationPermission, cancelSnoozes, nextOccurrence } from './notifications';
 import { syncReminders } from './reminders';
 
 export const listAlarms = store.listAlarms;
@@ -26,12 +26,16 @@ export async function updateAlarm(id: number, patch: Partial<AlarmInput>): Promi
 export async function toggleAlarm(id: number): Promise<Alarm | null> {
   const alarm = await store.toggleAlarm(id);
   if (alarm?.is_active) await afterSave();
-  else await syncReminders();
+  else {
+    await cancelSnoozes(id).catch(() => undefined);
+    await syncReminders();
+  }
   return alarm;
 }
 
 export async function deleteAlarm(id: number): Promise<void> {
   await store.deleteAlarm(id);
+  await cancelSnoozes(id).catch(() => undefined);
   await syncReminders();
 }
 
