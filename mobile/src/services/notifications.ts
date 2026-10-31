@@ -117,7 +117,7 @@ export async function scheduleSnooze(alarmId: number, title: string, body: strin
       title,
       body,
       sound: 'default',
-      data: { snoozedAlarmId: alarmId },
+      data: { snoozedAlarmId: alarmId, snoozeMinutes: minutes },
       categoryIdentifier: ALARM_CATEGORY,
     },
     trigger: {
@@ -130,6 +130,14 @@ export async function scheduleSnooze(alarmId: number, title: string, body: strin
 
 export async function dismissNotification(identifier: string): Promise<void> {
   await Notifications.dismissNotificationAsync(identifier).catch(() => undefined);
+}
+
+export async function cancelSnoozes(alarmId: number): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const snoozes = scheduled.filter((request) => request.content.data?.snoozedAlarmId === alarmId);
+  await Promise.all(
+    snoozes.map((request) => Notifications.cancelScheduledNotificationAsync(request.identifier).catch(() => undefined)),
+  );
 }
 
 export async function scheduleTestSequence(): Promise<string[]> {

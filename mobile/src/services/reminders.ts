@@ -55,7 +55,7 @@ export function planReminders(
         fireAt: at - minutes * 60_000,
         title: alarm.label,
         body: alarmBody(minutes),
-        data: { alarmId: alarm.id, minutesBefore: minutes },
+        data: { alarmId: alarm.id, minutesBefore: minutes, snoozeMinutes: alarm.snooze_duration },
       });
     }
   }
@@ -111,11 +111,11 @@ export async function handleSnoozeResponse(response: NotificationResponse): Prom
   handledResponses.add(identifier);
   const data = content.data;
   const alarmId = typeof data?.alarmId === 'number' ? data.alarmId : data?.snoozedAlarmId;
-  if (typeof alarmId !== 'number') return;
+  // snoozeMinutes ride in the notification, so no alarm fetch that fail when server is down
+  const minutes = data?.snoozeMinutes;
+  if (typeof alarmId !== 'number' || typeof minutes !== 'number') return;
   try {
-    const alarm = await alarmsStore.getAlarm(alarmId);
-    if (!alarm) return;
-    await scheduleSnooze(alarm.id, content.title ?? alarm.label, content.body ?? alarmBody(0), alarm.snooze_duration);
+    await scheduleSnooze(alarmId, content.title ?? '', content.body ?? alarmBody(0), minutes);
     await dismissNotification(identifier);
   } catch (error) {
     console.warn('Could not snooze alarm', error);
