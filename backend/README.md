@@ -125,15 +125,16 @@ Both devices must be on the same wifi network. If the address does not respond, 
 
 ## Database
 
-Five models live in `app/models/`, one file each.
+Six models live in `app/models/`, one file each.
 
 | Model | Holds |
 |---|---|
-| `Category` | A task type with a name and a hex colour, used for colour coding |
+| `Category` | A task type with a name, a hex colour and an optional reminder preset (`reminder_tier` and `custom_offsets`) |
 | `Event` | A calendar entry with a start, an end, an optional category, a location and manually entered travel minutes |
 | `Alarm` | A reminder time with repeat days, a frequency tier and optional custom offsets, optionally attached to an Event |
 | `Goal` | A long term goal with an optional target date, an urgency level and a completed flag |
-| `Task` | A unit of work, optionally under a Goal and a Category, with a due date and completed and locked flags |
+| `Task` | A unit of work, optionally under a Goal and a Category, with a due date, a planned day (`scheduled_date`), an estimate in minutes, a priority and completed and locked flags |
+| `TimeEntry` | A span of logged time with a start, an optional end and an optional note, optionally tied to a Task. No end means the timer is running |
 
 Every model has an integer `id`, `created_at` and `updated_at`, and a `to_dict()` that returns JSON safe values with ISO 8601 strings for dates and times.
 
@@ -181,6 +182,26 @@ Base path is `/api`.
 | GET | `/api/events/<id>` | Returns one event, or 404 |
 | PATCH | `/api/events/<id>` | Updates the fields you send, or 404 |
 | DELETE | `/api/events/<id>` | Deletes an event, returns 204, or 404 |
+| GET | `/api/goals` | Lists every goal, oldest first |
+| POST | `/api/goals` | Creates a goal, returns 201 |
+| GET | `/api/goals/<id>` | Returns one goal, or 404 |
+| PATCH | `/api/goals/<id>` | Updates the fields you send, or 404 |
+| DELETE | `/api/goals/<id>` | Deletes a goal and keeps its tasks, returns 204, or 404 |
+| GET | `/api/tasks` | Lists every task, oldest first. Accepts `?goal_id=` |
+| POST | `/api/tasks` | Creates a task, returns 201 |
+| GET | `/api/tasks/<id>` | Returns one task, or 404 |
+| PATCH | `/api/tasks/<id>` | Updates the fields you send, or 404 |
+| DELETE | `/api/tasks/<id>` | Deletes a task, returns 204, or 404 |
+| GET | `/api/tasks/suggest?now=` | Returns `{"task": ...}` with the task to do next, or `null` |
+| GET | `/api/categories` | Lists every task type by name |
+| POST | `/api/categories` | Creates a task type, returns 201 |
+| GET | `/api/categories/<id>` | Returns one task type, or 404 |
+| PATCH | `/api/categories/<id>` | Updates the fields you send, or 404 |
+| DELETE | `/api/categories/<id>` | Deletes a task type and keeps its tasks, returns 204, or 404 |
+| GET | `/api/time-entries` | Lists every time entry by start. Accepts `?date=` |
+| POST | `/api/time-entries` | Creates a time entry, returns 201 |
+| PATCH | `/api/time-entries/<id>` | Updates the fields you send, or 404 |
+| DELETE | `/api/time-entries/<id>` | Deletes a time entry, returns 204, or 404 |
 
 Example create.
 
@@ -219,6 +240,33 @@ GET /api/events?start=2026-10-20&end=2026-10-26
 Both parameters are required together, and `end` must be on or after `start`.
 
 `time` is 24 hour `HH:MM`. `repeat_days` uses the codes `mon tue wed thu fri sat sun` and comes back sorted into week order, with an empty list meaning a one time alarm. `frequency_tier` is one of `few`, `some`, `many` or `custom`, and `custom_offsets` is only kept when the tier is `custom`, sorted from largest to smallest. Invalid input returns 400 with an `error` message.
+
+### Tasks
+
+A task takes these fields on top of its title, `goal_id`, `category_id`, `is_completed` and `is_locked`.
+
+| Field | Rule |
+|---|---|
+| `due_date` | Local wall-clock date-time like `2026-10-20T17:00:00`, or null |
+| `scheduled_date` | The day the task is planned for, like `2026-10-20`, or null |
+| `estimated_minutes` | Whole number from 1 to 1440, or null |
+| `priority` | `low`, `medium` (the default) or `high` |
+
+`GET /api/tasks/suggest?now=2026-10-20T09:00:00` picks the next task from the open ones that are not planned for a later day. An overdue task wins, then the earliest due date, then the higher priority. The phone sends its own local time in `now`, so the server timezone never matters. The answer is `{"task": null}` when nothing is waiting. The phone runs the same ordering itself, so it also works offline.
+
+### Task types
+
+A category can carry a reminder preset. `reminder_tier` is null, which means use the user's default, or one of `few`, `some`, `many` or `custom`. The `custom` tier needs at least one value in `custom_offsets`, and any other tier clears `custom_offsets`. Names are unique, ignoring case.
+
+### Time entries
+
+An entry has `started_at`, an optional `ended_at` and an optional `task_id` and `note`. Times are local wall-clock like events. `ended_at` must be after `started_at`. Only one entry can have no `ended_at` at a time, and starting a second returns 409 with "Another timer is already running". To stop a timer, PATCH `ended_at`.
+
+`?date=2026-10-20` returns every entry that overlaps that day, so an entry that runs past midnight shows on both days.
+
+### Pace
+
+Pace is not stored on the server. The app compares the minutes logged today with a daily target the user sets, which defaults to 3 hours. The target is scaled by how much of the day has passed between 8 AM and 10 PM, so a 3 hour target expects 90 minutes by 3 PM. At or above that the user is on pace, below it they are behind, and reaching the full target counts as done.
 
 ## Tests
 

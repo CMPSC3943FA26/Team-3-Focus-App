@@ -3,8 +3,12 @@ from flask import Flask
 from .config import get_config
 from .extensions import cors, db, migrate
 from .routes.alarms import bp as alarms_bp
+from .routes.categories import bp as categories_bp
 from .routes.events import bp as events_bp
+from .routes.goals import bp as goals_bp
 from .routes.health import health_bp
+from .routes.tasks import bp as tasks_bp
+from .routes.time_entries import bp as time_entries_bp
 
 
 def create_app(config_name=None):
@@ -21,5 +25,9 @@ def create_app(config_name=None):
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(alarms_bp, url_prefix="/api")
     app.register_blueprint(events_bp, url_prefix="/api")
+    app.register_blueprint(goals_bp, url_prefix="/api")
+    app.register_blueprint(tasks_bp, url_prefix="/api")
+    app.register_blueprint(categories_bp, url_prefix="/api")
+    app.register_blueprint(time_entries_bp, url_prefix="/api")
 
     return app
