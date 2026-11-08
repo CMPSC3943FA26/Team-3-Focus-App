@@ -75,7 +75,7 @@ export function nextOccurrence(alarm: Pick<Alarm, 'time' | 'repeat_days'>, from:
 
 function isAppReminder(request: Notifications.NotificationRequest): boolean {
   const data = request.content.data;
-  return typeof data?.alarmId === 'number' || typeof data?.eventId === 'number';
+  return typeof data?.alarmId === 'number' || typeof data?.eventId === 'number' || typeof data?.taskId === 'number';
 }
 
 export async function applyReminderPlan(plan: PlannedReminder[]): Promise<number> {

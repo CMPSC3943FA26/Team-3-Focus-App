@@ -1,8 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { addDays } from 'date-fns';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ReplanSheet } from '@/components/ReplanSheet';
+import { TodayCard } from '@/components/TodayCard';
+import { TodayTasks } from '@/components/TodayTasks';
 import { Card } from '@/components/ui/Card';
 import { ClockText } from '@/components/ui/ClockText';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
@@ -10,11 +14,19 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useReminderSync } from '@/hooks/useReminderSync';
 import { useSnoozeResponse } from '@/hooks/useSnoozeResponse';
-import { describeWait, formatClock, parseLocal } from '@/lib/dates';
+import { dayKey, describeWait, formatClock, parseLocal } from '@/lib/dates';
+import { todaysTasks } from '@/lib/taskPlanning';
 import { listAlarms, nextAlarm } from '@/services/alarms';
+import { listCategories } from '@/services/categories';
 import { listEvents, nextDeparture } from '@/services/events';
+import { DEFAULT_DAILY_TARGET_MINUTES, getDailyTarget } from '@/services/pacePrefs';
+import { listTasks } from '@/services/tasks';
+import { listTimeEntries, moveTasks, type ReplanOffer } from '@/services/timeTracking';
 import type { Alarm } from '@/types/alarm';
+import type { Category } from '@/types/category';
 import type { CalendarEvent } from '@/types/event';
+import type { Task } from '@/types/task';
+import type { TimeEntry } from '@/types/timeEntry';
 import { useTheme } from '../../theme/ThemeContext';
 
 function countdown(target: Date): string {
@@ -32,15 +44,25 @@ export default function HomeScreen() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tick, setTick] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [target, setTarget] = useState(DEFAULT_DAILY_TARGET_MINUTES);
+  const [offer, setOffer] = useState<ReplanOffer | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   useReminderSync();
   useSnoozeResponse();
 
   const refresh = useCallback(() => {
-    Promise.all([listAlarms(), listEvents()])
-      .then(([loadedAlarms, loadedEvents]) => {
+    Promise.all([listAlarms(), listEvents(), listTasks(), listCategories(), listTimeEntries(), getDailyTarget()])
+      .then(([loadedAlarms, loadedEvents, loadedTasks, loadedCategories, loadedEntries, loadedTarget]) => {
         setAlarms(loadedAlarms);
         setEvents(loadedEvents);
+        setTasks(loadedTasks);
+        setCategories(loadedCategories);
+        setEntries(loadedEntries);
+        setTarget(loadedTarget);
         setFailed(false);
       })
       .catch(() => setFailed(true));
@@ -60,13 +82,33 @@ export default function HomeScreen() {
 
   const upcomingAlarm = nextAlarm(alarms);
   const departure = nextDeparture(events);
+  const todays = todaysTasks(tasks);
+  const openToday = todays.filter((task) => !task.is_completed);
+  const running = entries.find((entry) => entry.ended_at === null) ?? null;
+
+  const moveOffered = async () => {
+    if (!offer) return;
+    await moveTasks(offer.tasks, dayKey(addDays(new Date(), 1)));
+    setOffer(null);
+    refresh();
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, gap: theme.spacing.lg }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: theme.spacing.xl, paddingBottom: theme.spacing.xxl, gap: theme.spacing.lg }}>
         <ScreenHeader title="Today" showBack={false} />
 
         {failed ? <ErrorBanner message="Can't reach the server" onRetry={refresh} /> : null}
+
+        <TodayCard
+          entries={entries}
+          running={running}
+          tasks={tasks}
+          openTasks={openToday}
+          target={target}
+          onChanged={refresh}
+          onReplan={setOffer}
+        />
 
         <Card>
           <Text
@@ -198,6 +240,15 @@ export default function HomeScreen() {
           )}
         </Card>
 
+        <TodayTasks
+          tasks={tasks}
+          todays={todays}
+          categories={categories}
+          onChanged={refresh}
+          onReplan={setOffer}
+          scrollTo={(y) => scrollRef.current?.scrollTo({ y, animated: true })}
+        />
+
         <View style={{ gap: theme.spacing.md }}>
           <PrimaryButton label="Set new alarm" onPress={() => router.push('/alarms/new')} />
 
@@ -222,6 +273,8 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <ReplanSheet offer={offer} onMove={moveOffered} onClose={() => setOffer(null)} />
     </SafeAreaView>
   );
 }

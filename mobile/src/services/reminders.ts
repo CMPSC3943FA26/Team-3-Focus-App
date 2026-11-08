@@ -3,8 +3,11 @@ import type { NotificationResponse } from 'expo-notifications';
 import { offsetsFor, TIER_OFFSETS } from '../constants/reminders';
 import { parseLocal } from '../lib/dates';
 import { Alarm } from '../types/alarm';
+import { Category } from '../types/category';
 import { CalendarEvent } from '../types/event';
+import { Task } from '../types/task';
 import * as alarmsStore from './alarmsStore';
+import * as categoriesStore from './categoriesStore';
 import * as eventsStore from './eventsStore';
 import {
   applyReminderPlan,
@@ -16,6 +19,7 @@ import {
 } from './notifications';
 import { getQuietHours, insideQuietHours } from './quietHours';
 import { getReminderPrefs } from './reminderPrefs';
+import * as tasksStore from './tasksStore';
 
 const EVENT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -35,6 +39,10 @@ function eventBody(minutes: number, travels: boolean): string {
   return minutes === 0 ? 'Starting now' : `Starts in ${spell(minutes)}`;
 }
 
+function taskBody(minutes: number): string {
+  return minutes === 0 ? 'Due now' : `Due in ${spell(minutes)}`;
+}
+
 export function leaveTime(event: CalendarEvent): Date {
   const start = parseLocal(event.start_time);
   return new Date(start.getTime() - (event.travel_minutes ?? 0) * 60_000);
@@ -45,6 +53,8 @@ export function planReminders(
   events: CalendarEvent[],
   eventOffsets: number[],
   now: Date = new Date(),
+  tasks: Task[] = [],
+  categories: Category[] = [],
 ): PlannedReminder[] {
   const plans: PlannedReminder[] = [];
   for (const alarm of alarms) {
@@ -73,6 +83,23 @@ export function planReminders(
       });
     }
   }
+  for (const task of tasks) {
+    if (task.is_completed || !task.due_date) continue;
+    const due = parseLocal(task.due_date).getTime();
+    if (due <= now.getTime() || due > horizon) continue;
+    const category = categories.find((item) => item.id === task.category_id);
+    const offsets = category?.reminder_tier
+      ? offsetsFor({ frequency_tier: category.reminder_tier, custom_offsets: category.custom_offsets })
+      : eventOffsets;
+    for (const minutes of offsets) {
+      plans.push({
+        fireAt: due - minutes * 60_000,
+        title: task.title,
+        body: taskBody(minutes),
+        data: { taskId: task.id, minutesBefore: minutes },
+      });
+    }
+  }
   // soonest first, ios keep only around 64 pending so later ones get drop when budget end
   return plans.filter((plan) => plan.fireAt > now.getTime() + 5_000).sort((a, b) => a.fireAt - b.fireAt);
 }
@@ -91,7 +118,17 @@ async function runSync(): Promise<void> {
       prefs.default_tier === 'custom' ? prefs.default_custom_offsets : TIER_OFFSETS[prefs.default_tier];
     const quiet = await getQuietHours();
     // minutesBefore 0 is the alarm or leave time itself, it always fires
-    const planned = planReminders(await alarmsStore.listAlarms(), await eventsStore.listEvents(), eventOffsets, now);
+    // a server without task routes yet must not break alarm reminders
+    const tasks = await tasksStore.listTasks().catch(() => []);
+    const categories = await categoriesStore.listCategories().catch(() => []);
+    const planned = planReminders(
+      await alarmsStore.listAlarms(),
+      await eventsStore.listEvents(),
+      eventOffsets,
+      now,
+      tasks,
+      categories,
+    );
     const plan = planned.filter(
       (reminder) => reminder.data.minutesBefore === 0 || !insideQuietHours(new Date(reminder.fireAt), quiet),
     );

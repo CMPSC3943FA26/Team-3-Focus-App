@@ -71,6 +71,10 @@ function ThemedTabs() {
       <Tabs.Screen name="reminders" options={{ href: null }} />
       <Tabs.Screen name="quiet-hours" options={{ href: null }} />
       <Tabs.Screen name="events" options={{ href: null }} />
+      <Tabs.Screen name="tasks" options={{ href: null }} />
+      <Tabs.Screen name="time-log" options={{ href: null }} />
+      <Tabs.Screen name="daily-target" options={{ href: null }} />
+      <Tabs.Screen name="task-types" options={{ href: null }} />
     </Tabs>
   );
 }

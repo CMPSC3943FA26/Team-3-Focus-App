@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+import { RuleError } from './rules';
+
 const baseURL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
 const HAS_OFFSET = /(Z|[+-]\d{2}:?\d{2})$/i;
 
@@ -30,6 +32,7 @@ export function isNotFound(error: unknown): boolean {
 }
 
 export function apiErrorMessage(error: unknown): string {
+  if (error instanceof RuleError) return error.message;
   if (axios.isAxiosError(error)) {
     const message = (error.response?.data as { error?: string } | undefined)?.error;
     if (message) return message;

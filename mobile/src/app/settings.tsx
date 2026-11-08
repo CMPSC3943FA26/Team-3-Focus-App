@@ -9,6 +9,8 @@ import { PillGroup } from '@/components/ui/PillGroup';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { apiHost, checkServer, type ServerStatus } from '@/lib/api';
+import { formatDuration } from '@/lib/pace';
+import { DEFAULT_DAILY_TARGET_MINUTES, getDailyTarget } from '@/services/pacePrefs';
 import { cancelTestSequence, scheduleTestSequence, scheduledCount } from '@/services/notifications';
 import { useTheme } from '../../theme/ThemeContext';
 import type { ThemePreference } from '../../theme/tokens';
@@ -19,12 +21,18 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
 ];
 
+const FOCUS_ROWS = [
+  { title: 'Daily target', icon: 'flag-outline', href: '/daily-target' },
+  { title: 'Task types', icon: 'pricetags-outline', href: '/task-types' },
+] as const;
+
 export default function SettingsScreen() {
   const { theme, preference, setPreference } = useTheme();
   const router = useRouter();
   const [testIds, setTestIds] = useState<string[]>([]);
   const [count, setCount] = useState(0);
   const [status, setStatus] = useState<ServerStatus>('local');
+  const [target, setTarget] = useState(DEFAULT_DAILY_TARGET_MINUTES);
 
   const refreshCount = () => {
     scheduledCount().then(setCount).catch(() => setCount(0));
@@ -39,6 +47,7 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshServer();
+      getDailyTarget().then(setTarget);
     }, [refreshServer]),
   );
 
@@ -149,6 +158,54 @@ export default function SettingsScreen() {
             />
           </Card>
         </Pressable>
+
+        <View style={{ gap: theme.spacing.sm }}>
+          <Text
+            style={{
+              color: theme.colors.textSecondary,
+              fontSize: theme.typography.size.caption,
+              fontFamily: theme.typography.family.medium,
+            }}>
+            Focus
+          </Text>
+          <Card style={{ paddingVertical: theme.spacing.sm }}>
+            {FOCUS_ROWS.map((row, index) => (
+              <Pressable
+                key={row.title}
+                onPress={() => router.push(row.href)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: theme.spacing.md,
+                  paddingVertical: theme.spacing.lg,
+                  borderTopWidth: index === 0 ? 0 : 1,
+                  borderTopColor: theme.colors.border,
+                }}>
+                <Ionicons name={row.icon} size={22} color={theme.colors.accent} />
+                <Text
+                  style={{
+                    flex: 1,
+                    color: theme.colors.textPrimary,
+                    fontSize: theme.typography.size.body,
+                    fontFamily: theme.typography.family.regular,
+                  }}>
+                  {row.title}
+                </Text>
+                {row.title === 'Daily target' ? (
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.size.body,
+                      fontFamily: theme.typography.family.regular,
+                    }}>
+                    {formatDuration(target)}
+                  </Text>
+                ) : null}
+                <Ionicons name="chevron-forward" size={22} color={theme.colors.textSecondary} />
+              </Pressable>
+            ))}
+          </Card>
+        </View>
 
         {__DEV__ ? (
           <Card>

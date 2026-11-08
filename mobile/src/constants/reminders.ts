@@ -42,6 +42,17 @@ export function describeOffsets(offsets: number[]): string {
     .join(', ');
 }
 
+export function shortOffsets(offsets: number[]): string {
+  if (!offsets.length) return 'none';
+  return offsets
+    .map((minutes) => {
+      if (minutes === 0) return 'on time';
+      if (minutes >= 60 && minutes % 60 === 0) return `${minutes / 60} hr`;
+      return `${minutes} min`;
+    })
+    .join(', ');
+}
+
 export function parseOffsets(text: string): number[] | null {
   const parts = text.split(',').map((part) => part.trim()).filter(Boolean);
   if (!parts.length) return null;
