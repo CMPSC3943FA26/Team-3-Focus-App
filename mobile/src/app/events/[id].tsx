@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   View,
@@ -16,15 +17,30 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card } from '@/components/ui/Card';
+import { PillGroup } from '@/components/ui/PillGroup';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { SettingRow } from '@/components/ui/SettingRow';
 import { DEFAULT_EVENT_COLOR, EVENT_COLORS, MAX_TRAVEL_MINUTES } from '@/constants/events';
+import {
+  DAY_LABELS,
+  describeOffsets,
+  offsetsFor,
+  parseOffsets,
+  TIER_LABELS,
+  TIER_ORDER,
+} from '@/constants/reminders';
 import { apiErrorMessage } from '@/lib/api';
-import { formatClock, parseLocal, toLocalIso } from '@/lib/dates';
+import { dayKey, formatClock, parseLocal, toLocalIso } from '@/lib/dates';
 import { createEvent, deleteEvent, getEvent, updateEvent } from '@/services/events';
+import { DEFAULT_REMINDER_PREFS, getReminderPrefs, type ReminderPrefs } from '@/services/reminderPrefs';
+import { DAY_CODES, type DayCode, type FrequencyTier } from '@/types/alarm';
 import { useTheme } from '../../../theme/ThemeContext';
 
-type PickerTarget = 'date' | 'start' | 'end' | null;
+type PickerTarget = 'date' | 'start' | 'end' | 'until' | null;
+type TierChoice = 'default' | FrequencyTier;
+
+const WEEKDAY_CODES: DayCode[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 function combine(day: Date, clock: Date): Date {
   const result = new Date(day);
@@ -58,10 +74,19 @@ export default function EventFormScreen() {
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [color, setColor] = useState(DEFAULT_EVENT_COLOR);
+  const [repeatDays, setRepeatDays] = useState<DayCode[]>([]);
+  const [until, setUntil] = useState<Date | null>(null);
+  const [remind, setRemind] = useState(true);
+  const [tierChoice, setTierChoice] = useState<TierChoice>('default');
+  const [customText, setCustomText] = useState('');
+  const [prefs, setPrefs] = useState<ReminderPrefs>(DEFAULT_REMINDER_PREFS);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
+    getReminderPrefs()
+      .then(setPrefs)
+      .catch(() => undefined);
     if (isNew) {
       setLoading(false);
       return;
@@ -83,6 +108,11 @@ export default function EventFormScreen() {
         setLocation(event.location ?? '');
         setNotes(event.description ?? '');
         setColor(event.color ?? DEFAULT_EVENT_COLOR);
+        setRepeatDays(event.repeat_days);
+        setUntil(event.repeat_until ? parseLocal(`${event.repeat_until}T00:00:00`) : null);
+        setRemind(event.reminders_enabled);
+        setTierChoice(event.reminder_tier ?? 'default');
+        setCustomText(event.custom_offsets.join(', '));
       })
       .catch(() => setMissing(true))
       .finally(() => setLoading(false));
@@ -90,11 +120,32 @@ export default function EventFormScreen() {
 
   const startAt = combine(day, start);
   const endAt = combine(day, end);
+  const customOffsets = tierChoice === 'custom' ? parseOffsets(customText) : [];
+  const previewOffsets =
+    tierChoice === 'default'
+      ? offsetsFor({ frequency_tier: prefs.default_tier, custom_offsets: prefs.default_custom_offsets })
+      : tierChoice === 'custom'
+        ? (customOffsets ?? [])
+        : offsetsFor({ frequency_tier: tierChoice, custom_offsets: [] });
+
+  const toggleDay = (code: DayCode) => {
+    setRepeatDays((current) => {
+      if (current.includes(code)) return current.filter((item) => item !== code);
+      const next = current.length === 0 && code !== WEEKDAY_CODES[day.getDay()] ? [WEEKDAY_CODES[day.getDay()], code] : [...current, code];
+      return Array.from(new Set(next));
+    });
+  };
 
   const onSave = async () => {
     const nextErrors: Record<string, string> = {};
     if (!title.trim()) nextErrors.title = 'Give the event a title.';
     if (endAt <= startAt) nextErrors.time = 'The end time must be after the start time.';
+    if (repeatDays.length && until && dayKey(until) < dayKey(day)) {
+      nextErrors.until = 'The series cannot end before it starts.';
+    }
+    if (remind && tierChoice === 'custom' && customOffsets === null) {
+      nextErrors.reminders = 'Use whole minutes from 0 to 1440, separated by commas.';
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -108,6 +159,11 @@ export default function EventFormScreen() {
       location: location.trim() || null,
       travel_minutes: travel > 0 ? travel : null,
       color,
+      repeat_days: DAY_CODES.filter((code) => repeatDays.includes(code)),
+      repeat_until: repeatDays.length && until ? dayKey(until) : null,
+      reminders_enabled: remind,
+      reminder_tier: tierChoice === 'default' ? null : tierChoice,
+      custom_offsets: tierChoice === 'custom' ? (customOffsets ?? []) : [],
     };
     try {
       setSaveError(null);
@@ -327,6 +383,98 @@ export default function EventFormScreen() {
             </View>
           </Card>
 
+          <Card>
+            <Text style={[fieldLabel, { marginBottom: theme.spacing.md }]}>Repeat</Text>
+            <PillGroup
+              options={DAY_CODES.map((code) => ({ value: code, label: DAY_LABELS[code] }))}
+              selected={repeatDays}
+              onSelect={toggleDay}
+            />
+            {repeatDays.length ? (
+              <View style={{ marginTop: theme.spacing.lg }}>
+                <Text style={fieldLabel}>Ends</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xl, marginTop: theme.spacing.sm }}>
+                  <Pressable onPress={() => setUntil(null)}>
+                    <Text
+                      style={{
+                        color: until ? theme.colors.textSecondary : theme.colors.accent,
+                        fontSize: theme.typography.size.body,
+                        fontFamily: theme.typography.family.semibold,
+                      }}>
+                      Never
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => setPicker('until')}>
+                    <Text
+                      style={{
+                        color: until ? theme.colors.accent : theme.colors.textSecondary,
+                        fontSize: theme.typography.size.body,
+                        fontFamily: theme.typography.family.semibold,
+                      }}>
+                      {until ? format(until, 'EEE, MMM d yyyy') : 'On a date'}
+                    </Text>
+                  </Pressable>
+                </View>
+                {errors.until ? <Text style={errorStyle}>{errors.until}</Text> : null}
+              </View>
+            ) : null}
+            <Text
+              style={{
+                color: theme.colors.textSecondary,
+                fontSize: theme.typography.size.caption,
+                fontFamily: theme.typography.family.regular,
+                marginTop: theme.spacing.md,
+              }}>
+              Repeats every week. Editing changes every week.
+            </Text>
+          </Card>
+
+          <Card>
+            <SettingRow
+              title="Remind me"
+              description="Nudges before this starts, or before you need to leave"
+              control={<Switch value={remind} onValueChange={setRemind} trackColor={{ true: theme.colors.accent }} />}
+            />
+            {remind ? (
+              <View style={{ marginTop: theme.spacing.lg }}>
+                <PillGroup
+                  options={[
+                    { value: 'default' as TierChoice, label: 'Default' },
+                    ...TIER_ORDER.map((value) => ({ value: value as TierChoice, label: TIER_LABELS[value] })),
+                  ]}
+                  selected={[tierChoice]}
+                  onSelect={setTierChoice}
+                />
+                {tierChoice === 'custom' ? (
+                  <TextInput
+                    value={customText}
+                    onChangeText={setCustomText}
+                    placeholder="45, 20, 5, 0"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    keyboardType="numbers-and-punctuation"
+                    style={{
+                      ...inputStyle,
+                      marginTop: theme.spacing.lg,
+                      borderColor: customOffsets === null ? theme.colors.danger : theme.colors.border,
+                    }}
+                  />
+                ) : null}
+                {errors.reminders ? <Text style={errorStyle}>{errors.reminders}</Text> : null}
+                {customOffsets !== null ? (
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.size.caption,
+                      fontFamily: theme.typography.family.regular,
+                      marginTop: theme.spacing.lg,
+                    }}>
+                    {describeOffsets(previewOffsets)}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </Card>
+
           {!isNew ? (
             <Pressable onPress={onDelete} style={{ alignItems: 'center', paddingVertical: theme.spacing.md }}>
               <Text
@@ -343,14 +491,15 @@ export default function EventFormScreen() {
 
         {picker ? (
           <DateTimePicker
-            value={picker === 'date' ? day : picker === 'start' ? startAt : endAt}
-            mode={picker === 'date' ? 'date' : 'time'}
+            value={picker === 'date' ? day : picker === 'until' ? (until ?? day) : picker === 'start' ? startAt : endAt}
+            mode={picker === 'date' || picker === 'until' ? 'date' : 'time'}
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(event, selected) => {
               const target = picker;
               if (Platform.OS !== 'ios') setPicker(null);
               if (event.type === 'dismissed' || !selected) return;
               if (target === 'date') setDay(selected);
+              if (target === 'until') setUntil(selected);
               if (target === 'start') setStart(selected);
               if (target === 'end') setEnd(selected);
             }}

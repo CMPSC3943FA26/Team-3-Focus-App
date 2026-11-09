@@ -1,3 +1,5 @@
+import { DayCode, FrequencyTier } from './alarm';
+
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -8,6 +10,11 @@ export interface CalendarEvent {
   location: string | null;
   travel_minutes: number | null;
   color: string | null;
+  repeat_days: DayCode[];
+  repeat_until: string | null;
+  reminders_enabled: boolean;
+  reminder_tier: FrequencyTier | null;
+  custom_offsets: number[];
   created_at: string;
   updated_at: string;
 }

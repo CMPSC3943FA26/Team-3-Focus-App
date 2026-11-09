@@ -14,7 +14,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useReminderSync } from '@/hooks/useReminderSync';
 import { useSnoozeResponse } from '@/hooks/useSnoozeResponse';
-import { dayKey, describeWait, formatClock, parseLocal } from '@/lib/dates';
+import { dayKey, describeWait, formatClock } from '@/lib/dates';
 import { todaysTasks } from '@/lib/taskPlanning';
 import { listAlarms, nextAlarm } from '@/services/alarms';
 import { listCategories } from '@/services/categories';
@@ -149,8 +149,8 @@ export default function HomeScreen() {
                   marginTop: theme.spacing.xs,
                 }}>
                 {departure.travels
-                  ? `Leave by ${formatClock(departure.leaveAt)} · starts ${formatClock(parseLocal(departure.event.start_time))}`
-                  : `Starts ${formatClock(parseLocal(departure.event.start_time))}`}
+                  ? `Leave by ${formatClock(departure.leaveAt)} · starts ${formatClock(departure.start)}`
+                  : `Starts ${formatClock(departure.start)}`}
               </Text>
             </View>
           ) : (

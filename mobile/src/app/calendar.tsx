@@ -12,7 +12,8 @@ import { PillGroup } from '@/components/ui/PillGroup';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Fab } from '@/components/ui/Fab';
 import { DEFAULT_EVENT_COLOR } from '@/constants/events';
-import { addDays, dayKey, parseLocal, weekDays } from '@/lib/dates';
+import { addDays, dayKey, weekDays } from '@/lib/dates';
+import { occurrencesBetween, type Occurrence } from '@/lib/occurrences';
 import { listEvents } from '@/services/events';
 import type { CalendarEvent } from '@/types/event';
 import { useTheme } from '../../theme/ThemeContext';
@@ -30,6 +31,7 @@ export default function CalendarScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<ViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [monthAnchor, setMonthAnchor] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [failed, setFailed] = useState(false);
 
@@ -49,13 +51,15 @@ export default function CalendarScreen() {
   );
 
   const byDay = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    for (const event of events) {
-      const key = dayKey(parseLocal(event.start_time));
-      map.set(key, [...(map.get(key) ?? []), event]);
+    const first = selectedDate < monthAnchor ? selectedDate : monthAnchor;
+    const last = selectedDate < monthAnchor ? monthAnchor : selectedDate;
+    const map = new Map<string, Occurrence[]>();
+    for (const occurrence of occurrencesBetween(events, addDays(first, -40), addDays(last, 70))) {
+      const key = dayKey(occurrence.start);
+      map.set(key, [...(map.get(key) ?? []), occurrence]);
     }
     return map;
-  }, [events]);
+  }, [events, selectedDate, monthAnchor]);
 
   const selectedKey = dayKey(selectedDate);
   const dayEvents = byDay.get(selectedKey) ?? [];
@@ -65,9 +69,9 @@ export default function CalendarScreen() {
     const marks: Record<string, { dots?: { key: string; color: string }[]; selected?: boolean }> = {};
     for (const [key, list] of byDay) {
       marks[key] = {
-        dots: list.slice(0, 3).map((event, index) => ({
-          key: `${event.id}-${index}`,
-          color: event.color ?? DEFAULT_EVENT_COLOR,
+        dots: list.slice(0, 3).map((occurrence, index) => ({
+          key: `${occurrence.key}-${index}`,
+          color: occurrence.event.color ?? DEFAULT_EVENT_COLOR,
         })),
       };
     }
@@ -125,8 +129,12 @@ export default function CalendarScreen() {
               emptyText('Nothing planned')
             ) : (
               <View style={{ gap: theme.spacing.md }}>
-                {dayEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onPress={() => router.push(`/events/${event.id}`)} />
+                {dayEvents.map((occurrence) => (
+                  <EventCard
+                    key={occurrence.key}
+                    occurrence={occurrence}
+                    onPress={() => router.push(`/events/${occurrence.event.id}`)}
+                  />
                 ))}
               </View>
             )}
@@ -204,8 +212,12 @@ export default function CalendarScreen() {
                         {format(day, 'EEEE, MMM d')}
                       </Text>
                       <View style={{ gap: theme.spacing.md }}>
-                        {list.map((event) => (
-                          <EventCard key={event.id} event={event} onPress={() => router.push(`/events/${event.id}`)} />
+                        {list.map((occurrence) => (
+                          <EventCard
+                    key={occurrence.key}
+                    occurrence={occurrence}
+                    onPress={() => router.push(`/events/${occurrence.event.id}`)}
+                  />
                         ))}
                       </View>
                     </View>
@@ -222,6 +234,7 @@ export default function CalendarScreen() {
               markingType="multi-dot"
               markedDates={markedDates}
               onDayPress={(day) => setSelectedDate(new Date(day.year, day.month - 1, day.day))}
+              onMonthChange={(month) => setMonthAnchor(new Date(month.year, month.month - 1, 15))}
               firstDay={1}
               theme={{
                 calendarBackground: theme.colors.surface,
@@ -249,8 +262,12 @@ export default function CalendarScreen() {
               emptyText('Nothing planned')
             ) : (
               <View style={{ gap: theme.spacing.md }}>
-                {dayEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onPress={() => router.push(`/events/${event.id}`)} />
+                {dayEvents.map((occurrence) => (
+                  <EventCard
+                    key={occurrence.key}
+                    occurrence={occurrence}
+                    onPress={() => router.push(`/events/${occurrence.event.id}`)}
+                  />
                 ))}
               </View>
             )}

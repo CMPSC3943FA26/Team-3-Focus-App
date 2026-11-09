@@ -1,7 +1,8 @@
 import type { NotificationResponse } from 'expo-notifications';
 
 import { offsetsFor, TIER_OFFSETS } from '../constants/reminders';
-import { parseLocal } from '../lib/dates';
+import { dayKey, parseLocal } from '../lib/dates';
+import { expandOccurrences, Occurrence } from '../lib/occurrences';
 import { Alarm } from '../types/alarm';
 import { Category } from '../types/category';
 import { CalendarEvent } from '../types/event';
@@ -43,6 +44,10 @@ function taskBody(minutes: number): string {
   return minutes === 0 ? 'Due now' : `Due in ${spell(minutes)}`;
 }
 
+export function occurrenceLeaveTime(occurrence: Occurrence): Date {
+  return new Date(occurrence.start.getTime() - (occurrence.event.travel_minutes ?? 0) * 60_000);
+}
+
 export function leaveTime(event: CalendarEvent): Date {
   const start = parseLocal(event.start_time);
   return new Date(start.getTime() - (event.travel_minutes ?? 0) * 60_000);
@@ -71,16 +76,28 @@ export function planReminders(
   }
   const horizon = now.getTime() + EVENT_WINDOW_MS;
   for (const event of events) {
-    const leave = leaveTime(event).getTime();
-    if (leave <= now.getTime() || leave > horizon) continue;
+    if (!event.reminders_enabled) continue;
+    const offsets = event.reminder_tier
+      ? offsetsFor({ frequency_tier: event.reminder_tier, custom_offsets: event.custom_offsets })
+      : eventOffsets;
     const travels = (event.travel_minutes ?? 0) > 0;
-    for (const minutes of eventOffsets) {
-      plans.push({
-        fireAt: leave - minutes * 60_000,
-        title: event.title,
-        body: eventBody(minutes, travels),
-        data: { eventId: event.id, minutesBefore: minutes },
-      });
+    // look a bit past the horizon, because leave time is before the start
+    const occurrences = expandOccurrences(event, now, new Date(horizon + 12 * 60 * 60_000));
+    for (const occurrence of occurrences) {
+      const leave = occurrenceLeaveTime(occurrence).getTime();
+      if (leave <= now.getTime() || leave > horizon) continue;
+      for (const minutes of offsets) {
+        plans.push({
+          fireAt: leave - minutes * 60_000,
+          title: event.title,
+          body: eventBody(minutes, travels),
+          data: {
+            eventId: event.id,
+            minutesBefore: minutes,
+            occurrenceDay: Number(dayKey(occurrence.start).replace(/-/g, '')),
+          },
+        });
+      }
     }
   }
   for (const task of tasks) {

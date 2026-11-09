@@ -1,7 +1,8 @@
+import { occurrencesBetween } from '../lib/occurrences';
 import { CalendarEvent, EventInput } from '../types/event';
 import * as store from './eventsStore';
 import { askNotificationPermission } from './notifications';
-import { leaveTime, syncReminders } from './reminders';
+import { occurrenceLeaveTime, syncReminders } from './reminders';
 
 export const listEvents = store.listEvents;
 export const listEventsBetween = store.listEventsBetween;
@@ -32,9 +33,14 @@ export async function deleteEvent(id: number): Promise<void> {
 export function nextDeparture(
   events: CalendarEvent[],
   now: Date = new Date(),
-): { event: CalendarEvent; leaveAt: Date; travels: boolean } | null {
-  const upcoming = events
-    .map((event) => ({ event, leaveAt: leaveTime(event), travels: (event.travel_minutes ?? 0) > 0 }))
+): { event: CalendarEvent; start: Date; leaveAt: Date; travels: boolean } | null {
+  const upcoming = occurrencesBetween(events, now, new Date(now.getTime() + 60 * 24 * 60 * 60_000))
+    .map((occurrence) => ({
+      event: occurrence.event,
+      start: occurrence.start,
+      leaveAt: occurrenceLeaveTime(occurrence),
+      travels: (occurrence.event.travel_minutes ?? 0) > 0,
+    }))
     .filter((item) => item.leaveAt.getTime() > now.getTime())
     .sort((a, b) => a.leaveAt.getTime() - b.leaveAt.getTime());
   return upcoming[0] ?? null;
