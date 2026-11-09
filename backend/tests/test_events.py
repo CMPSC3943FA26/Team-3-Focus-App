@@ -1,6 +1,7 @@
 EVENT_KEYS = {
     "id", "title", "description", "start_time", "end_time", "category_id",
-    "location", "travel_minutes", "color", "created_at", "updated_at",
+    "location", "travel_minutes", "color", "repeat_days", "repeat_until",
+    "reminders_enabled", "reminder_tier", "custom_offsets", "created_at", "updated_at",
 }
 
 VALID = {
@@ -62,3 +63,71 @@ def test_patch_and_delete(client):
     assert response.get_json()["travel_minutes"] is None
     assert client.delete(f"/api/events/{event['id']}").status_code == 204
     assert client.get(f"/api/events/{event['id']}").status_code == 404
+
+
+WEEKLY = {**VALID, "repeat_days": ["wed", "mon"]}
+
+
+def test_repeat_and_reminder_defaults(client):
+    body = client.post("/api/events", json=VALID).get_json()
+    assert body["repeat_days"] == []
+    assert body["repeat_until"] is None
+    assert body["reminders_enabled"] is True
+    assert body["reminder_tier"] is None
+    assert body["custom_offsets"] == []
+
+
+def test_weekly_event_appears_in_a_range_three_weeks_later(client):
+    created = client.post("/api/events", json=WEEKLY).get_json()
+    assert created["repeat_days"] == ["mon", "wed"]
+    later = client.get("/api/events?start=2026-11-09&end=2026-11-15").get_json()
+    assert [event["id"] for event in later] == [created["id"]]
+    before = client.get("/api/events?start=2026-10-12&end=2026-10-18").get_json()
+    assert before == []
+
+
+def test_repeat_until_excludes_later_ranges(client):
+    body = {**WEEKLY, "repeat_until": "2026-11-02"}
+    created = client.post("/api/events", json=body).get_json()
+    inside = client.get("/api/events?start=2026-11-02&end=2026-11-08").get_json()
+    outside = client.get("/api/events?start=2026-11-09&end=2026-11-15").get_json()
+    assert [event["id"] for event in inside] == [created["id"]]
+    assert outside == []
+
+
+def test_non_repeating_event_is_not_returned_for_later_ranges(client):
+    client.post("/api/events", json=VALID)
+    assert client.get("/api/events?start=2026-11-09&end=2026-11-15").get_json() == []
+
+
+def test_bad_day_code_is_rejected(client):
+    assert client.post("/api/events", json={**VALID, "repeat_days": ["funday"]}).status_code == 400
+
+
+def test_repeat_until_before_start_is_rejected(client):
+    response = client.post("/api/events", json={**WEEKLY, "repeat_until": "2026-10-19"})
+    assert response.status_code == 400
+    event = client.post("/api/events", json=WEEKLY).get_json()
+    patched = client.patch(f"/api/events/{event['id']}", json={"repeat_until": "2026-10-01"})
+    assert patched.status_code == 400
+
+
+def test_custom_tier_needs_offsets(client):
+    response = client.post("/api/events", json={**VALID, "reminder_tier": "custom"})
+    assert response.status_code == 400
+    ok = client.post("/api/events", json={**VALID, "reminder_tier": "custom", "custom_offsets": [5, 45]})
+    assert ok.status_code == 201
+    assert ok.get_json()["custom_offsets"] == [45, 5]
+
+
+def test_other_tier_clears_offsets_and_reminders_can_be_off(client):
+    event = client.post(
+        "/api/events", json={**VALID, "reminder_tier": "custom", "custom_offsets": [30]}
+    ).get_json()
+    patched = client.patch(
+        f"/api/events/{event['id']}", json={"reminder_tier": "many", "reminders_enabled": False}
+    ).get_json()
+    assert patched["custom_offsets"] == []
+    assert patched["reminders_enabled"] is False
+    assert client.post("/api/events", json={**VALID, "reminder_tier": "loud"}).status_code == 400
+    assert client.post("/api/events", json={**VALID, "reminders_enabled": "yes"}).status_code == 400

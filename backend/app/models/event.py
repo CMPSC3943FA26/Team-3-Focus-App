@@ -1,8 +1,9 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 from app.extensions import db
 
+from .alarm import DAY_CODES, FREQUENCY_TIERS
 from .base import TimestampMixin, iso
 
 COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -67,6 +68,45 @@ def clean_event_payload(data, partial=False):
             raise EventValidationError("category_id must be a whole number or null")
         cleaned["category_id"] = value
 
+    if "repeat_days" in data:
+        value = data["repeat_days"]
+        if not isinstance(value, list) or any(day not in DAY_CODES for day in value):
+            raise EventValidationError("repeat_days must be a list of: " + ", ".join(DAY_CODES))
+        cleaned["repeat_days"] = [day for day in DAY_CODES if day in value]
+
+    if "repeat_until" in data:
+        value = data["repeat_until"]
+        if value is None:
+            cleaned["repeat_until"] = None
+        else:
+            try:
+                if not isinstance(value, str):
+                    raise ValueError
+                cleaned["repeat_until"] = date.fromisoformat(value)
+            except ValueError:
+                raise EventValidationError("repeat_until must be a date like 2026-12-18 or null") from None
+
+    if "reminders_enabled" in data:
+        if not isinstance(data["reminders_enabled"], bool):
+            raise EventValidationError("reminders_enabled must be true or false")
+        cleaned["reminders_enabled"] = data["reminders_enabled"]
+
+    if "reminder_tier" in data:
+        value = data["reminder_tier"]
+        if value is not None and value not in FREQUENCY_TIERS:
+            raise EventValidationError(
+                "reminder_tier must be null or one of: " + ", ".join(FREQUENCY_TIERS)
+            )
+        cleaned["reminder_tier"] = value
+
+    if "custom_offsets" in data:
+        value = data["custom_offsets"]
+        if not isinstance(value, list) or any(
+            not _is_int(item) or not 0 <= item <= 1440 for item in value
+        ):
+            raise EventValidationError("custom_offsets must be whole minutes from 0 to 1440")
+        cleaned["custom_offsets"] = sorted(set(value), reverse=True)
+
     return cleaned
 
 
@@ -82,6 +122,11 @@ class Event(TimestampMixin, db.Model):
     location = db.Column(db.String(200))
     travel_minutes = db.Column(db.Integer)
     color = db.Column(db.String(7))
+    repeat_days = db.Column(db.JSON, nullable=False, default=list)
+    repeat_until = db.Column(db.Date)
+    reminders_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    reminder_tier = db.Column(db.String(10))
+    custom_offsets = db.Column(db.JSON, nullable=False, default=list)
 
     category = db.relationship("Category", back_populates="events")
     alarms = db.relationship("Alarm", back_populates="event")
@@ -97,6 +142,11 @@ class Event(TimestampMixin, db.Model):
             "location": self.location,
             "travel_minutes": self.travel_minutes,
             "color": self.color,
+            "repeat_days": list(self.repeat_days or []),
+            "repeat_until": iso(self.repeat_until),
+            "reminders_enabled": self.reminders_enabled,
+            "reminder_tier": self.reminder_tier,
+            "custom_offsets": list(self.custom_offsets or []),
             "created_at": iso(self.created_at),
             "updated_at": iso(self.updated_at),
         }

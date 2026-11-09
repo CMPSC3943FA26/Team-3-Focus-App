@@ -239,6 +239,24 @@ GET /api/events?start=2026-10-20&end=2026-10-26
 
 Both parameters are required together, and `end` must be on or after `start`.
 
+### Repeating events and reminders
+
+An event can repeat weekly, which is how a class schedule is stored. One row is the whole series.
+
+| Field | Rule |
+|---|---|
+| `repeat_days` | List of `mon tue wed thu fri sat sun`, returned in week order. Empty means it does not repeat |
+| `repeat_until` | Last day the series can land on, like `2026-12-18`, or null for no end. Must not be before the start date |
+| `reminders_enabled` | `true` by default. `false` means the app sends no nudges for this event |
+| `reminder_tier` | null means use the user's default, or one of `few`, `some`, `many` or `custom` |
+| `custom_offsets` | Minutes before, from 0 to 1440. The `custom` tier needs at least one, and any other tier clears them |
+
+`start_time` and `end_time` describe the first occurrence. The app works out every later one from `repeat_days`, so editing the event changes the whole series, and there are no single-occurrence exceptions.
+
+A `?start=&end=` range returns a repeating series whenever it can still land in that range, even though its first occurrence is earlier, and stops returning it after `repeat_until`. The phone turns the series into individual days.
+
+An event's reminders act as its alarm. The app does not create separate alarm rows for events, because that would send every nudge twice.
+
 `time` is 24 hour `HH:MM`. `repeat_days` uses the codes `mon tue wed thu fri sat sun` and comes back sorted into week order, with an empty list meaning a one time alarm. `frequency_tier` is one of `few`, `some`, `many` or `custom`, and `custom_offsets` is only kept when the tier is `custom`, sorted from largest to smallest. Invalid input returns 400 with an `error` message.
 
 ### Tasks

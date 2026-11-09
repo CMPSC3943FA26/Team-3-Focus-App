@@ -18,6 +18,18 @@ def _check_rules(fields, event=None):
     end = fields.get("end_time", event.end_time if event else None)
     if start is not None and end is not None and end <= start:
         raise EventValidationError("end_time must be after start_time")
+    until = fields.get("repeat_until", event.repeat_until if event else None)
+    if until is not None and start is not None and until < start.date():
+        raise EventValidationError("repeat_until must not be before the start date")
+    tier = fields.get("reminder_tier", event.reminder_tier if event else None)
+    offsets = fields.get("custom_offsets", event.custom_offsets if event else [])
+    if tier == "custom":
+        if not offsets:
+            raise EventValidationError(
+                "custom_offsets needs at least one value when reminder_tier is custom"
+            )
+    else:
+        fields["custom_offsets"] = []
     category_id = fields.get("category_id")
     if category_id is not None and db.session.get(Category, category_id) is None:
         raise EventValidationError("category_id does not match an existing category")
@@ -28,6 +40,15 @@ def _parse_day(value, name):
         return date.fromisoformat(value)
     except (TypeError, ValueError):
         raise EventValidationError(f"{name} must be a date like 2026-10-20") from None
+
+
+def _touches_range(event, range_start, range_end):
+    if event.end_time > range_start:
+        return True
+    if not event.repeat_days:
+        return False
+    # repeating series can still land in range even when first one is before it
+    return event.repeat_until is None or event.repeat_until >= range_start.date()
 
 
 @bp.get("/events")
@@ -45,8 +66,9 @@ def list_events():
             return _error("end must be on or after start")
         range_start = datetime.combine(start_day, datetime.min.time())
         range_end = datetime.combine(end_day + timedelta(days=1), datetime.min.time())
-        # take event that overlap the range, also when it start before range and still going
-        query = query.where(Event.start_time < range_end, Event.end_time > range_start)
+        query = query.where(Event.start_time < range_end)
+        events = [event for event in db.session.execute(query).scalars() if _touches_range(event, range_start, range_end)]
+        return jsonify([event.to_dict() for event in events])
     events = db.session.execute(query).scalars().all()
     return jsonify([event.to_dict() for event in events])
 
