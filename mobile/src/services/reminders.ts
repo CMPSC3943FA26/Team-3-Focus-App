@@ -56,7 +56,8 @@ export function planReminders(
         title: alarm.label,
         body: alarmBody(minutes),
         data: { alarmId: alarm.id, minutesBefore: minutes, snoozeMinutes: alarm.snooze_duration },
-        sound: alarm.sound_file,
+        // only the alarm itself plays the chosen sound, early nudges stay on default
+        sound: minutes === 0 ? alarm.sound_file : null,
       });
     }
   }

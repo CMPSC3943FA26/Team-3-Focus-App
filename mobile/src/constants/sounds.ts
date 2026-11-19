@@ -2,7 +2,7 @@ export type AlarmSound = { file: string; label: string };
 
 // to add a sound put the .wav in assets/sounds, add it here and to the expo-notifications sounds list in app.json
 export const ALARM_SOUNDS: AlarmSound[] = [
-  { file: 'gentle_reminder.wav', label: 'Gentle' },
+  { file: 'gentle_reminder.wav', label: 'Soft' },
   { file: 'reminder_nudge.wav', label: 'Nudge' },
   { file: 'important_reminder.wav', label: 'Important' },
   { file: 'spoken_reminder.wav', label: 'Spoken' },
