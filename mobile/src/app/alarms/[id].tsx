@@ -22,6 +22,7 @@ import { ClockText } from '@/components/ui/ClockText';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SettingRow } from '@/components/ui/SettingRow';
 import { DAY_LABELS, parseOffsets } from '@/constants/reminders';
+import { ALARM_SOUNDS, DEFAULT_SOUND, knownSound } from '@/constants/sounds';
 import { apiErrorMessage } from '@/lib/api';
 import { createAlarm, deleteAlarm, getAlarm, updateAlarm } from '@/services/alarms';
 import { getReminderPrefs } from '@/services/reminderPrefs';
@@ -61,6 +62,7 @@ export default function AlarmFormScreen() {
   const [tier, setTier] = useState<FrequencyTier>('some');
   const [customText, setCustomText] = useState('');
   const [snooze, setSnooze] = useState(5);
+  const [sound, setSound] = useState<string>(DEFAULT_SOUND);
   const [showPicker, setShowPicker] = useState(Platform.OS === 'ios');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -88,6 +90,7 @@ export default function AlarmFormScreen() {
         setTier(alarm.frequency_tier);
         setCustomText(alarm.custom_offsets.join(', '));
         setSnooze(alarm.snooze_duration);
+        setSound(knownSound(alarm.sound_file) ?? DEFAULT_SOUND);
       })
       .catch(() => setMissing(true))
       .finally(() => setLoading(false));
@@ -104,7 +107,7 @@ export default function AlarmFormScreen() {
       label: label.trim() || 'Alarm',
       is_active: true,
       repeat_days: days,
-      sound_file: null,
+      sound_file: sound === DEFAULT_SOUND ? null : sound,
       snooze_duration: snooze,
       frequency_tier: tier,
       custom_offsets: customOffsets ?? [],
@@ -277,22 +280,36 @@ export default function AlarmFormScreen() {
             />
           </Card>
 
-          <Card>
-            <SettingRow
-              title="Sound"
-              description="Custom sounds are coming later"
-              control={
-                <Text
-                  style={{
-                    color: theme.colors.textSecondary,
-                    fontSize: theme.typography.size.body,
-                    fontFamily: theme.typography.family.regular,
-                  }}>
-                  Default
-                </Text>
-              }
-            />
-          </Card>
+          {ALARM_SOUNDS.length ? (
+            <Card>
+              <Text style={[fieldLabel, { marginBottom: theme.spacing.md }]}>Sound</Text>
+              <PillGroup
+                options={[
+                  { value: DEFAULT_SOUND, label: 'Default' },
+                  ...ALARM_SOUNDS.map((option) => ({ value: option.file, label: option.label })),
+                ]}
+                selected={[sound]}
+                onSelect={setSound}
+              />
+            </Card>
+          ) : (
+            <Card>
+              <SettingRow
+                title="Sound"
+                description="Custom sounds are coming later"
+                control={
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.size.body,
+                      fontFamily: theme.typography.family.regular,
+                    }}>
+                    Default
+                  </Text>
+                }
+              />
+            </Card>
+          )}
 
           {!isNew ? (
             <Pressable onPress={onDelete} style={{ alignItems: 'center', paddingVertical: theme.spacing.md }}>

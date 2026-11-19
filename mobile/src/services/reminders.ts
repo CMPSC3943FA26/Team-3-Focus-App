@@ -71,6 +71,8 @@ export function planReminders(
         title: alarm.label,
         body: alarmBody(minutes),
         data: { alarmId: alarm.id, minutesBefore: minutes, snoozeMinutes: alarm.snooze_duration },
+        // only the alarm itself plays the chosen sound, early nudges stay on default
+        sound: minutes === 0 ? alarm.sound_file : null,
       });
     }
   }
@@ -168,8 +170,9 @@ export async function handleSnoozeResponse(response: NotificationResponse): Prom
   // snoozeMinutes ride in the notification, so no alarm fetch that fail when server is down
   const minutes = data?.snoozeMinutes;
   if (typeof alarmId !== 'number' || typeof minutes !== 'number') return;
+  const soundFile = typeof data?.soundFile === 'string' ? data.soundFile : null;
   try {
-    await scheduleSnooze(alarmId, content.title ?? '', content.body ?? alarmBody(0), minutes);
+    await scheduleSnooze(alarmId, content.title ?? '', content.body ?? alarmBody(0), minutes, soundFile);
     await dismissNotification(identifier);
   } catch (error) {
     console.warn('Could not snooze alarm', error);

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 
+import { ALARM_SOUNDS, knownSound } from '../constants/sounds';
 import { Alarm, DayCode } from '../types/alarm';
 
 const CHANNEL_ID = 'reminders';
@@ -14,9 +15,15 @@ export interface PlannedReminder {
   title: string;
   body: string;
   data: Record<string, number>;
+  sound?: string | null;
 }
 
 let initialized = false;
+
+// android sound is set on the channel not the notification, so each sound need its own channel
+function channelFor(sound: string | null): string {
+  return sound ? `alarm-${sound}` : CHANNEL_ID;
+}
 
 export async function initNotifications(): Promise<void> {
   if (initialized) return;
@@ -36,6 +43,14 @@ export async function initNotifications(): Promise<void> {
       sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
     });
+    for (const sound of ALARM_SOUNDS) {
+      await Notifications.setNotificationChannelAsync(channelFor(sound.file), {
+        name: `Alarm: ${sound.label}`,
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: sound.file,
+        vibrationPattern: [0, 250, 250, 250],
+      });
+    }
   }
   // opens the app on tap, if false a killed app never hear the snooze press
   await Notifications.setNotificationCategoryAsync(ALARM_CATEGORY, [
@@ -91,18 +106,20 @@ export async function applyReminderPlan(plan: PlannedReminder[]): Promise<number
   for (const item of chosen) {
     // only the alarm itself gets snooze, early nudges dont need it
     const snoozable = typeof item.data.alarmId === 'number' && item.data.minutesBefore === 0;
+    // a sound not in ALARM_SOUNDS has no file or channel, so it play the default
+    const sound = knownSound(item.sound);
     await Notifications.scheduleNotificationAsync({
       content: {
         title: item.title,
         body: item.body,
-        sound: 'default',
-        data: item.data,
+        sound: sound ?? 'default',
+        data: sound ? { ...item.data, soundFile: sound } : item.data,
         categoryIdentifier: snoozable ? ALARM_CATEGORY : undefined,
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: new Date(item.fireAt),
-        channelId: CHANNEL_ID,
+        channelId: channelFor(sound),
       },
     });
   }
@@ -110,20 +127,29 @@ export async function applyReminderPlan(plan: PlannedReminder[]): Promise<number
 }
 
 // snoozedAlarmId not alarmId, so applyReminderPlan dont cancel it on next sync
-export async function scheduleSnooze(alarmId: number, title: string, body: string, minutes: number): Promise<void> {
+export async function scheduleSnooze(
+  alarmId: number,
+  title: string,
+  body: string,
+  minutes: number,
+  soundFile: string | null,
+): Promise<void> {
   await initNotifications();
+  const sound = knownSound(soundFile);
   await Notifications.scheduleNotificationAsync({
     content: {
       title,
       body,
-      sound: 'default',
-      data: { snoozedAlarmId: alarmId, snoozeMinutes: minutes },
+      sound: sound ?? 'default',
+      data: sound
+        ? { snoozedAlarmId: alarmId, snoozeMinutes: minutes, soundFile: sound }
+        : { snoozedAlarmId: alarmId, snoozeMinutes: minutes },
       categoryIdentifier: ALARM_CATEGORY,
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: minutes * 60,
-      channelId: CHANNEL_ID,
+      channelId: channelFor(sound),
     },
   });
 }

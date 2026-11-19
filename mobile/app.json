@@ -33,7 +33,18 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/gentle_reminder.wav",
+            "./assets/sounds/reminder_nudge.wav",
+            "./assets/sounds/important_reminder.wav",
+            "./assets/sounds/spoken_reminder.wav"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
